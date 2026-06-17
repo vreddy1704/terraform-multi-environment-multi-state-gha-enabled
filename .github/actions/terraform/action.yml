@@ -1,0 +1,62 @@
+name: "Terraform"
+description: "Init + plan/apply one environment directory, authenticating via GitHub OIDC."
+
+inputs:
+  environment:
+    description: "Environment name (must match envs/<environment>)."
+    required: true
+  mode:
+    description: "plan or apply."
+    required: true
+  role-arn:
+    description: "IAM role ARN to assume via OIDC."
+    required: true
+  aws-region:
+    description: "AWS region."
+    required: false
+    default: "us-east-1"
+  tf-version:
+    description: "Terraform version. Pin this for reproducible CI."
+    required: false
+    default: "1.9.8"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure AWS credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.tf-version }}
+
+    - name: Format check
+      shell: bash
+      run: terraform fmt -check -recursive
+
+    - name: Init
+      shell: bash
+      working-directory: envs/${{ inputs.environment }}
+      run: terraform init -input=false
+
+    - name: Validate
+      shell: bash
+      working-directory: envs/${{ inputs.environment }}
+      run: terraform validate
+
+    - name: Plan
+      if: ${{ inputs.mode == 'plan' }}
+      shell: bash
+      working-directory: envs/${{ inputs.environment }}
+      # -lock=false keeps PR plans read-only and non-blocking for real applies.
+      run: terraform plan -input=false -no-color -lock=false
+
+    - name: Apply
+      if: ${{ inputs.mode == 'apply' }}
+      shell: bash
+      working-directory: envs/${{ inputs.environment }}
+      run: terraform apply -input=false -no-color -auto-approve

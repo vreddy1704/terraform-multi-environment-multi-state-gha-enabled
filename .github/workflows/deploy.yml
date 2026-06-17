@@ -1,0 +1,25 @@
+name: Deploy (apply on merge to main)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  apply:
+    name: apply-${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, preprod, prod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform
+        with:
+          environment: ${{ matrix.environment }}
+          mode: apply
+          role-arn: ${{ secrets.AWS_APPLY_ROLE_ARN }}

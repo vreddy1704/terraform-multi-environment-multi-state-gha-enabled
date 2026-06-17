@@ -1,0 +1,25 @@
+name: PR Plan
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  plan:
+    name: plan-${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, preprod, prod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform
+        with:
+          environment: ${{ matrix.environment }}
+          mode: plan
+          role-arn: ${{ secrets.AWS_PLAN_ROLE_ARN }}
